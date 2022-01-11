@@ -29,7 +29,7 @@ KD_4hr_barcodes.tsv.gz; KD_4hr_features.tsv.gz; KD_4hr_matrix.mtx.gz
 
 4) Remove prefix from the file names. For example, remove 'Ctrl_0hr_' from the file names of 'Ctrl_0hr_barcodes.tsv', 'Ctrl_0hr_features.tsv', and 'Ctrl_0hr_matrix.mtx'. 
 
-## Run the R script
+### Run the R script
 Download the R script named 'scRNAseq_Integrative_Ctrl_vs_KD_final.Rmd' from this github page onto your working directory and run the script.
 
 ## Conclusion
