@@ -9,15 +9,11 @@ Immune stimulation fuels cell signaling-transcriptional programs inducing biolog
 GSE169339: scRNAseq analysis comparing primary CD4+ T cells in resting memory state or stimulated with anti-CD3/anti-CD28 states and the effect of loss of ADAP1
 
 ### Folder structure
-1) Download files listed below from the data repository
-
-Ctrl_0hr_barcodes.tsv.gz; Ctrl_0hr_features.tsv.gz; Ctrl_0hr_matrix.mtx.gz
-
-Ctrl_4hr_barcodes.tsv.gz; Ctrl_4hr_features.tsv.gz; Ctrl_4hr_matrix.mtx.gz
-
-KD_0hr_barcodes.tsv.gz; KD_0hr_features.tsv.gz; KD_0hr_matrix.mtx.gz
-
-KD_4hr_barcodes.tsv.gz; KD_4hr_features.tsv.gz; KD_4hr_matrix.mtx.gz
+1) Download files listed below from the data repository  
+  Ctrl_0hr_barcodes.tsv.gz; Ctrl_0hr_features.tsv.gz; Ctrl_0hr_matrix.mtx.gz    
+  Ctrl_4hr_barcodes.tsv.gz; Ctrl_4hr_features.tsv.gz; Ctrl_4hr_matrix.mtx.gz  
+  KD_0hr_barcodes.tsv.gz; KD_0hr_features.tsv.gz; KD_0hr_matrix.mtx.gz  
+  KD_4hr_barcodes.tsv.gz; KD_4hr_features.tsv.gz; KD_4hr_matrix.mtx.gz
 
 2) Create the folder structures under your working directory
 2020_12_02_10X14_10480_0\analysis_results\ExpectCells\Ctrl_0hr\outs\filtered_feature_bc_matrix
