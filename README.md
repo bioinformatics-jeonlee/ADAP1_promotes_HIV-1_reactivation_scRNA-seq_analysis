@@ -21,12 +21,16 @@ GSE169339: scRNAseq analysis comparing primary CD4+ T cells in resting memory st
 2020_12_03_10X14_10480_0\analysis_results\ExpectCells\Ctrl_4hr\outs\filtered_feature_bc_matrix
 2020_12_03_10X14_10480_0\analysis_results\ExpectCells\KD_4hr\outs\filtered_feature_bc_matrix
 
-3) Uncompress all the .gz files and store them under the corresponding folder. For example, 'Ctrl_0hr_barcodes.tsv', 'Ctrl_0hr_features.tsv', and 'Ctrl_0hr_matrix.mtx' need to be stroed under '2020_12_02_10X14_10480_0\analysis_results\ExpectCells\Ctrl_0hr\outs\filtered_feature_bc_matrix'
+3) Uncompress all the .gz files and store them under the corresponding folder. For example, 'Ctrl_0hr_barcodes.tsv', 'Ctrl_0hr_features.tsv', and 'Ctrl_0hr_matrix.mtx' need to be stored under '2020_12_02_10X14_10480_0\analysis_results\ExpectCells\Ctrl_0hr\outs\filtered_feature_bc_matrix'
 
 4) Remove prefix from the file names. For example, remove 'Ctrl_0hr_' from the file names of 'Ctrl_0hr_barcodes.tsv', 'Ctrl_0hr_features.tsv', and 'Ctrl_0hr_matrix.mtx'. 
 
 ### Run the R script
-Download the R script named 'scRNAseq_Integrative_Ctrl_vs_KD_final.Rmd' from this github page onto your working directory and run the script.
+Download the R (markdown) script named 'scRNAseq_Analysis_Template.Rmd' from this github page onto your working directory and edit the paths to your working director and the directories containing the scRNA-seq data.
+
+Download 'regev_lab_cell_cycle_genes.txt' onto your working directory and run the script.
+
+If needed, compare your running results with our R markdown file 'scRNAseq_Integrative_Ctrl_vs_KD_final.Rmd' and its wrapped HTML file. 
 
 ## Conclusion
 Single cell transcriptomics analysis revealed loss of ADAP1 function blunts genne program upon T cell stimulation consequently dampening latent HIV-1 reactivation.
