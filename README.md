@@ -26,7 +26,7 @@ GSE169339: scRNAseq analysis comparing primary CD4+ T cells in resting memory st
 4) Remove prefix from the file names. For example, remove 'Ctrl_0hr_' from the file names of 'Ctrl_0hr_barcodes.tsv', 'Ctrl_0hr_features.tsv', and 'Ctrl_0hr_matrix.mtx'. 
 
 ### Run the R script
-Download the R (markdown) script named 'scRNAseq_Analysis_Template.Rmd' from this github page onto your working directory and edit the paths to your working director and the directories containing the scRNA-seq data.
+Download the R (markdown) script named 'scRNAseq_Analysis_Template.Rmd' from this github page onto your working directory and edit the paths to a)your working directory and b)the directories containing the scRNA-seq data.
 
 Download 'regev_lab_cell_cycle_genes.txt' onto your working directory and run the script.
 
