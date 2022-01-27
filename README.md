@@ -33,4 +33,4 @@ Download 'regev_lab_cell_cycle_genes.txt' onto your working directory and run th
 If needed, compare your running results with our R markdown file 'scRNAseq_Integrative_Ctrl_vs_KD_final.Rmd' and its wrapped HTML file. 
 
 ## Conclusion
-Single cell transcriptomics analysis revealed loss of ADAP1 function blunts genne program upon T cell stimulation consequently dampening latent HIV-1 reactivation.
+Single cell transcriptomics analysis revealed loss of ADAP1 function blunts gene program upon T cell stimulation consequently dampening latent HIV-1 reactivation.
