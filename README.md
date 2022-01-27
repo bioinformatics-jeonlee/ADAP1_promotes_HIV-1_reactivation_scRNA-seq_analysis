@@ -34,3 +34,7 @@ If needed, compare your running results with our R markdown file 'scRNAseq_Integ
 
 ## Conclusion
 Single cell transcriptomics analysis revealed loss of ADAP1 function blunts gene program upon T cell stimulation consequently dampening latent HIV-1 reactivation.
+
+<p align="center">
+<img width="600" src="https://user-images.githubusercontent.com/35382038/151445228-e8ceca69-c7dc-4e57-a5d0-14f32df252d9.jpg">
+</p>
