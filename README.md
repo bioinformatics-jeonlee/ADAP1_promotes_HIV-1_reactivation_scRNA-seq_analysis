@@ -38,3 +38,8 @@ Single cell transcriptomics analysis revealed loss of ADAP1 function blunts gene
 <p align="center">
 <img width="600" src="https://user-images.githubusercontent.com/35382038/151445228-e8ceca69-c7dc-4e57-a5d0-14f32df252d9.jpg">
 </p>
+
+## Reference
+N. P. Ramirez, J. Lee, Y. Zheng, L. Li, B. Dennis, D. Chen, A. Challa, V. Planelles, K. D. Westover, N. M. Alto, & I. D’Orso (2022). ADAP1 promotes latent HIV-1 reactivation by selectively tuning KRAS–ERK–AP-1 T cell signaling-transcriptional axis.
+
+
