@@ -1,0 +1,521 @@
+---
+title: "scRNA-seq integrative analysis: log2FC difference between Ctrl and KD cells"
+author: "Jeon Lee"
+date: "February 3, 2021; updated on February 5 & 6 & 10 & 19 & 23 & 26, March 12"
+output: html_document
+---
+
+$~$
+
+## 0) Environment set-up and data loading
+```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+library(Seurat)
+library(ggplot2)
+library(Matrix)
+library(plotly)
+library(knitr)
+library(kableExtra)
+library(gplots)
+library(dplyr)
+library(cowplot)
+library(patchwork)
+
+
+setwd("put_your_working_directory_here")
+
+#======== Read a list of cell cycle markers, from Tirosh et al, 2015 ======##
+cc.genes <- readLines(con = "cell_cycle_vignette_files/regev_lab_cell_cycle_genes.txt")
+# We can segregate this list into markers of G2/M phase and markers of S phase
+s.genes <- cc.genes[1:43]
+g2m.genes <- cc.genes[44:97]
+```
+
+$~$
+
+#### Load and process Ctrl 0hr scRNA-seq data
+```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+## Load 10X experiment data
+matrix_dir = "/2020_12_02_10X14_10480_0/analysis_results/ExpectCells/Ctrl_0hr/outs/"
+
+barcode.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/barcodes.tsv.gz")
+features.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/features.tsv.gz")
+matrix.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/matrix.mtx.gz")
+mat <- readMM(file = matrix.path)
+feature.names = read.delim(features.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+barcode.names = read.delim(barcode.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+colnames(mat) = barcode.names$V1
+rownames(mat) = feature.names$V1 #feature.names$V2
+
+# Add "_2" to the gene symbols which are shown twice in 'feature.names'
+idx <- which(duplicated(feature.names$V2, fromLast=TRUE))
+feature.names$V2[idx] <- paste(feature.names$V2[idx], "2", sep="_")
+rownames(mat) = feature.names$V2
+
+# Creat a Seurate Object
+CTRL_0HR <- CreateSeuratObject(count = mat, min.cells = 0, min.features=1, project = "Ctrl_0hr")
+
+# Calculate percent.mito values
+mito.genes <- grep(pattern = "^MT-", x = rownames(x = CTRL_0HR@assays[["RNA"]]), value = TRUE)
+percent.mito <- Matrix::colSums(CTRL_0HR@assays[["RNA"]][mito.genes, ])/Matrix::colSums(CTRL_0HR@assays[["RNA"]])*100
+CTRL_0HR <- AddMetaData(object = CTRL_0HR, metadata = percent.mito, col.name = "percent.mito") 
+
+# Plot 'nGene', 'nUMI' and 'percent.mito' violin plots
+VlnPlot(CTRL_0HR, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3)
+
+## Cell fitering based on scatter plots of percent.mito and nFeature_RNA over nCount_RNA
+plot1 <- FeatureScatter(object = CTRL_0HR, feature1 = "nCount_RNA", feature2 = "percent.mito")
+plot2 <- FeatureScatter(object = CTRL_0HR, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1+plot2 #CombinePlots(plots = list(plot1, plot2))
+
+## Filter out cells 
+upper_thr_Count <- quantile(CTRL_0HR@meta.data$nCount_RNA, 0.90)#95) # calculate value in the 95th percentile
+lower_thr_Count <- quantile(CTRL_0HR@meta.data$nCount_RNA, 0.10)#05) 
+upper_thr_Feature <- quantile(CTRL_0HR@meta.data$nFeature_RNA, 0.9) #0.9)
+lower_thr_Feature <- quantile(CTRL_0HR@meta.data$nFeature_RNA, 0.1) #0.1)
+upper_thr_pct.mito <- 10#10
+lower_thr_pct.mito <- 1#1
+CTRL_0HR <- subset(x=CTRL_0HR, nCount_RNA < upper_thr_Count & nCount_RNA > lower_thr_Count & nFeature_RNA < upper_thr_Feature & nFeature_RNA > lower_thr_Feature & percent.mito < upper_thr_pct.mito & percent.mito > lower_thr_pct.mito)
+```
+
+$~$
+
+#### Load and process KD 0hr scRNA-seq data
+```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+## Load 10X experiment data
+matrix_dir = "/2020_12_02_10X14_10480_0/analysis_results/ExpectCells/KD_0hr/outs/"
+
+barcode.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/barcodes.tsv.gz")
+features.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/features.tsv.gz")
+matrix.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/matrix.mtx.gz")
+mat <- readMM(file = matrix.path)
+feature.names = read.delim(features.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+barcode.names = read.delim(barcode.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+colnames(mat) = barcode.names$V1
+rownames(mat) = feature.names$V1 #feature.names$V2
+
+# Add "_2" to the gene symbols which are shown twice in 'feature.names'
+idx <- which(duplicated(feature.names$V2, fromLast=TRUE))
+feature.names$V2[idx] <- paste(feature.names$V2[idx], "2", sep="_")
+rownames(mat) = feature.names$V2
+
+# Creat a Seurate Object
+KD_0HR <- CreateSeuratObject(count = mat, min.cells = 0, min.features=1, project = "KD_0hr")
+
+# Calculate percent.mito values
+mito.genes <- grep(pattern = "^MT-", x = rownames(x = KD_0HR@assays[["RNA"]]), value = TRUE)
+percent.mito <- Matrix::colSums(KD_0HR@assays[["RNA"]][mito.genes, ])/Matrix::colSums(KD_0HR@assays[["RNA"]])*100
+KD_0HR <- AddMetaData(object = KD_0HR, metadata = percent.mito, col.name = "percent.mito") 
+
+# Plot 'nGene', 'nUMI' and 'percent.mito' violin plots
+VlnPlot(KD_0HR, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3)
+
+## Cell fitering based on scatter plots of percent.mito and nFeature_RNA over nCount_RNA
+plot1 <- FeatureScatter(object = KD_0HR, feature1 = "nCount_RNA", feature2 = "percent.mito")
+plot2 <- FeatureScatter(object = KD_0HR, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1+plot2 #CombinePlots(plots = list(plot1, plot2))
+
+## Filter out cells 
+upper_thr_Count <- quantile(KD_0HR@meta.data$nCount_RNA, 0.90)#95) # calculate value in the 95th percentile
+lower_thr_Count <- quantile(KD_0HR@meta.data$nCount_RNA, 0.10)#05) 
+upper_thr_Feature <- quantile(KD_0HR@meta.data$nFeature_RNA, 0.9) #0.9)
+lower_thr_Feature <- quantile(KD_0HR@meta.data$nFeature_RNA, 0.1) #0.1)
+upper_thr_pct.mito <- 10#10
+lower_thr_pct.mito <- 1#1
+KD_0HR <- subset(x=KD_0HR, nCount_RNA < upper_thr_Count & nCount_RNA > lower_thr_Count & nFeature_RNA < upper_thr_Feature & nFeature_RNA > lower_thr_Feature & percent.mito < upper_thr_pct.mito & percent.mito > lower_thr_pct.mito)
+```
+
+$~$
+
+#### Load and process Ctrl 4hr scRNA-seq data
+```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+## Load 10X experiment data
+matrix_dir = "/2020_12_03_10X14_10480_0/analysis_results/ExpectCells/Ctrl_4hr/outs/"
+
+barcode.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/barcodes.tsv.gz")
+features.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/features.tsv.gz")
+matrix.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/matrix.mtx.gz")
+mat <- readMM(file = matrix.path)
+feature.names = read.delim(features.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+barcode.names = read.delim(barcode.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+colnames(mat) = barcode.names$V1
+rownames(mat) = feature.names$V1 #feature.names$V2
+
+# Add "_2" to the gene symbols which are shown twice in 'feature.names'
+idx <- which(duplicated(feature.names$V2, fromLast=TRUE))
+feature.names$V2[idx] <- paste(feature.names$V2[idx], "2", sep="_")
+rownames(mat) = feature.names$V2
+
+# Creat a Seurate Object
+CTRL_4HR <- CreateSeuratObject(count = mat, min.cells = 0, min.features=1, project = "Ctrl_4hr")
+
+# Calculate percent.mito values
+mito.genes <- grep(pattern = "^MT-", x = rownames(x = CTRL_4HR@assays[["RNA"]]), value = TRUE)
+percent.mito <- Matrix::colSums(CTRL_4HR@assays[["RNA"]][mito.genes, ])/Matrix::colSums(CTRL_4HR@assays[["RNA"]])*100
+CTRL_4HR <- AddMetaData(object = CTRL_4HR, metadata = percent.mito, col.name = "percent.mito") 
+
+# Plot 'nGene', 'nUMI' and 'percent.mito' violin plots
+VlnPlot(CTRL_4HR, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3)
+
+## Cell fitering based on scatter plots of percent.mito and nFeature_RNA over nCount_RNA
+plot1 <- FeatureScatter(object = CTRL_4HR, feature1 = "nCount_RNA", feature2 = "percent.mito")
+plot2 <- FeatureScatter(object = CTRL_4HR, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1+plot2 #CombinePlots(plots = list(plot1, plot2))
+
+## Filter out cells 
+upper_thr_Count <- quantile(CTRL_0HR@meta.data$nCount_RNA, 0.90)#95) # calculate value in the 95th percentile
+lower_thr_Count <- quantile(CTRL_0HR@meta.data$nCount_RNA, 0.10)#05) 
+upper_thr_Feature <- quantile(CTRL_0HR@meta.data$nFeature_RNA, 0.9) #0.9)
+lower_thr_Feature <- quantile(CTRL_0HR@meta.data$nFeature_RNA, 0.1) #0.1)
+upper_thr_pct.mito <- 10#10
+lower_thr_pct.mito <- 1#1
+CTRL_4HR <- subset(x=CTRL_4HR, nCount_RNA < upper_thr_Count & nCount_RNA > lower_thr_Count & nFeature_RNA < upper_thr_Feature & nFeature_RNA > lower_thr_Feature & percent.mito < upper_thr_pct.mito & percent.mito > lower_thr_pct.mito)
+```
+
+$~$
+
+#### Load and process KD 4hr scRNA-seq data
+```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+## Load 10X experiment data
+matrix_dir = "/2020_12_03_10X14_10480_0/analysis_results/ExpectCells/KD_4hr/outs/"
+
+barcode.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/barcodes.tsv.gz")
+features.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/features.tsv.gz")
+matrix.path <- paste0(matrix_dir, "filtered_feature_bc_matrix/matrix.mtx.gz")
+mat <- readMM(file = matrix.path)
+feature.names = read.delim(features.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+barcode.names = read.delim(barcode.path, 
+                           header = FALSE,
+                           stringsAsFactors = FALSE)
+colnames(mat) = barcode.names$V1
+rownames(mat) = feature.names$V1 #feature.names$V2
+
+# Add "_2" to the gene symbols which are shown twice in 'feature.names'
+idx <- which(duplicated(feature.names$V2, fromLast=TRUE))
+feature.names$V2[idx] <- paste(feature.names$V2[idx], "2", sep="_")
+rownames(mat) = feature.names$V2
+
+# Creat a Seurate Object
+KD_4HR <- CreateSeuratObject(count = mat, min.cells = 0, min.features=1, project = "KD_4hr")
+
+# Calculate percent.mito values
+mito.genes <- grep(pattern = "^MT-", x = rownames(x = KD_4HR@assays[["RNA"]]), value = TRUE)
+percent.mito <- Matrix::colSums(KD_4HR@assays[["RNA"]][mito.genes, ])/Matrix::colSums(KD_4HR@assays[["RNA"]])*100
+KD_4HR <- AddMetaData(object = KD_4HR, metadata = percent.mito, col.name = "percent.mito") 
+
+# Plot 'nGene', 'nUMI' and 'percent.mito' violin plots
+VlnPlot(KD_4HR, features = c("nFeature_RNA", "nCount_RNA", "percent.mito"), ncol = 3)
+
+## Cell fitering based on scatter plots of percent.mito and nFeature_RNA over nCount_RNA
+plot1 <- FeatureScatter(object = KD_4HR, feature1 = "nCount_RNA", feature2 = "percent.mito")
+plot2 <- FeatureScatter(object = KD_4HR, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1+plot2 #CombinePlots(plots = list(plot1, plot2))
+
+## Filter out cells 
+upper_thr_Count <- quantile(KD_4HR@meta.data$nCount_RNA, 0.90)#95) # calculate value in the 95th percentile
+lower_thr_Count <- quantile(KD_4HR@meta.data$nCount_RNA, 0.10)#05) 
+upper_thr_Feature <- quantile(KD_4HR@meta.data$nFeature_RNA, 0.9) #0.9)
+lower_thr_Feature <- quantile(KD_4HR@meta.data$nFeature_RNA, 0.1) #0.1)
+upper_thr_pct.mito <- 10#10
+lower_thr_pct.mito <- 1#1
+KD_4HR <- subset(x=KD_4HR, nCount_RNA < upper_thr_Count & nCount_RNA > lower_thr_Count & nFeature_RNA < upper_thr_Feature & nFeature_RNA > lower_thr_Feature & percent.mito < upper_thr_pct.mito & percent.mito > lower_thr_pct.mito)
+```
+
+$~$
+
+## 1) Integration of Ctrl scRNA-seq data (Ctrl_0hr and Ctrl_4hr)
+```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+options(future.globals.maxSize = 8000 * 1024^2) # set to 8GB
+
+# Generate a list variable of Seurat objects
+Ctrl.list=list()
+Ctrl.list[[1]] <- CTRL_0HR
+Ctrl.list[[2]] <- CTRL_4HR
+names(Ctrl.list) <- c("CTRL_0HR", "CTRL_4HR")
+
+for (i in 1:length(Ctrl.list)) {
+    Ctrl.list[[i]] <- NormalizeData(Ctrl.list[[i]], verbose = TRUE)
+    Ctrl.list[[i]] <- CellCycleScoring(Ctrl.list[[i]], g2m.features=g2m.genes, s.features=s.genes)
+    Ctrl.list[[i]] <- SCTransform(Ctrl.list[[i]], vars.to.regress = c("percent.mito"))
+    ##Ctrl.list[[i]] <- SCTransform(Ctrl.list[[i]], vars.to.regress = c("S.Score","G2M.Score"))
+}
+
+Ctrl.features <- SelectIntegrationFeatures(object.list = Ctrl.list, nfeatures = 7500)#5000) #3000)
+Ctrl.list <- PrepSCTIntegration(object.list = Ctrl.list, anchor.features = Ctrl.features, verbose = FALSE)
+
+Ctrl.anchors <- FindIntegrationAnchors(object.list = Ctrl.list, normalization.method = "SCT", anchor.features = Ctrl.features, verbose = FALSE)
+Ctrl.integrated <- IntegrateData(anchorset = Ctrl.anchors, normalization.method = "SCT", verbose = FALSE)
+
+head(x = Ctrl.integrated@meta.data)
+
+rm(list=c("Ctrl.list","Ctrl.anchors"))
+```
+
+$~$
+
+#### Clustering analysis for the integrated Ctrl scRNA-seq data
+```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+# specify that we will perform downstream analysis on the corrected data note that the original
+# unmodified data still resides in the 'RNA' assay
+DefaultAssay(Ctrl.integrated) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+Ctrl.integrated <- RunPCA(Ctrl.integrated, npcs = 30, verbose = FALSE)
+Ctrl.integrated <- RunUMAP(Ctrl.integrated, reduction = "pca", dims = 1:30)
+
+set.seed(12345)
+Ctrl.integrated <- FindNeighbors(Ctrl.integrated, reduction = "pca", dims = 1:30)
+Ctrl.integrated <- FindClusters(Ctrl.integrated, resolution = 0.75)
+
+# Visualization
+p1 <- DimPlot(Ctrl.integrated, reduction = "umap", group.by = "orig.ident")
+p2 <- DimPlot(Ctrl.integrated, reduction = "umap", label = TRUE, repel = TRUE)
+p1+p2
+DimPlot(Ctrl.integrated, reduction = "umap", split.by = "orig.ident")
+
+## CD69 expression levels
+DefaultAssay(Ctrl.integrated) <- "RNA"
+FeaturePlot(Ctrl.integrated, features = c("CD69"), split.by = "orig.ident", max.cutoff = 3, cols = c("grey", "red"))
+```
+
+$~$
+
+#### (optional) Trajectory analysis
+```{r message=FALSE, warning=FALSE, fig.width=6, fig.height=5}
+library(SeuratWrappers)
+library(monocle3)
+
+Idents(Ctrl.integrated) <- "orig.ident"
+Ctrl.integrated.sub <- subset(Ctrl.integrated, idents = c("Ctrl_4hr"))
+
+Ctrl.cds <- as.cell_data_set(Ctrl.integrated.sub)
+Ctrl.cds <- cluster_cells(cds = Ctrl.cds, reduction_method = "UMAP")
+Ctrl.cds <- learn_graph(Ctrl.cds, use_partition = FALSE, close_loop = FALSE)
+
+# cell with the highest ADAP1
+idx <- which.max(assay(Ctrl.cds)[rownames(assay(Ctrl.cds))=="CD69",])
+
+# order cells
+Ctrl.cds <- order_cells(Ctrl.cds, reduction_method = "UMAP", root_cells = names(idx)) #NULL
+
+# plot trajectories colored by pseudotime
+plot_cells(
+  cds = Ctrl.cds,
+  color_cells_by = "pseudotime",
+  show_trajectory_graph = TRUE
+)
+```
+
+$~$
+
+#### Marker discovery for Ctrl_4hr vs. Ctrl_0hr cells
+```{r message=FALSE, warning=FALSE, fig.width=8, fig.height=12}
+#DefaultAssay(Ctrl.integrated) <- "RNA"
+#Ctrl.integrated <- NormalizeData(Ctrl.integrated, verbose = FALSE)
+
+Ctrl.integrated <- SetIdent(object = Ctrl.integrated, value = "orig.ident")
+Ctrl.integrated.markers <- FindMarkers(Ctrl.integrated, ident.1 = "Ctrl_4hr", assay="RNA", only.pos = FALSE, min.pct = 0.1, logfc.threshold = 0.25) #0.10)#25) 
+#Ctrl.integrated <- SetIdent(object = Ctrl.integrated, value = "seurat_clusters")
+#Ctrl.integrated.markers <- FindMarkers(Ctrl.integrated, ident.1 = c(3), only.pos = FALSE, min.pct = 0.1, logfc.threshold = 0.5) 
+
+
+Ctrl.UP.sig_markers <- Ctrl.integrated.markers %>% filter(p_val_adj < 0.05) %>% top_n(n = 50, wt = avg_log2FC)
+Ctrl.DN.sig_markers <- Ctrl.integrated.markers %>% filter(p_val_adj < 0.05) %>% top_n(n = -50, wt = avg_log2FC)
+Ctrl.sig_markers <- bind_rows(Ctrl.UP.sig_markers, Ctrl.DN.sig_markers)
+
+#DefaultAssay(Ctrl.integrated) <- "integrated"
+#DoHeatmap(Ctrl.integrated, features = rownames(Ctrl.sig_markers), size=2) + NoLegend() + theme(text = element_text(size = 8))
+```
+$~$
+
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=50}
+#Ctrl.UP.sig_markers
+Ctrl.up_sig_genes <- rownames(Ctrl.UP.sig_markers)
+
+Ctrl.up_plots <- VlnPlot(Ctrl.integrated, features = Ctrl.up_sig_genes, assay="RNA", group.by = "orig.ident", pt.size = 0.5, combine = FALSE)
+wrap_plots(plots=Ctrl.up_plots, ncol=3)
+```
+
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=50}
+#Ctrl.DN.sig_markers
+Ctrl.down_sig_genes <- rownames(Ctrl.DN.sig_markers)
+
+Ctrl.down_plots <- VlnPlot(Ctrl.integrated, features = Ctrl.down_sig_genes, assay="RNA", group.by = "orig.ident", pt.size = 0.5, combine = FALSE)
+wrap_plots(plots=Ctrl.down_plots, ncol=3)
+```
+
+
+$~$
+
+## 2) Integration of KD scRNA-seq data (KD_0hr and _4hr)
+```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+options(future.globals.maxSize = 8000 * 1024^2) # set to 8GB
+
+# Generate a list variable of Seurat objects
+KD.list=list()
+KD.list[[1]] <- KD_0HR
+KD.list[[2]] <- KD_4HR
+names(KD.list) <- c("KD_0HR", "KD_4HR")
+
+for (i in 1:length(KD.list)) {
+    KD.list[[i]] <- NormalizeData(KD.list[[i]], verbose = TRUE)
+    KD.list[[i]] <- CellCycleScoring(KD.list[[i]], g2m.features=g2m.genes, s.features=s.genes)
+    KD.list[[i]] <- SCTransform(KD.list[[i]], vars.to.regress = c("percent.mito"))
+    #KD.list[[i]] <- SCTransform(KD.list[[i]], vars.to.regress = c("S.Score","G2M.Score"))
+}
+
+KD.features <- SelectIntegrationFeatures(object.list = KD.list, nfeatures = 7500) #5000) #3000)
+KD.list <- PrepSCTIntegration(object.list = KD.list, anchor.features = KD.features, verbose = FALSE)
+
+KD.anchors <- FindIntegrationAnchors(object.list = KD.list, normalization.method = "SCT", anchor.features = KD.features, verbose = FALSE)
+KD.integrated <- IntegrateData(anchorset = KD.anchors, normalization.method = "SCT", verbose = FALSE)
+
+head(x = KD.integrated@meta.data)
+
+rm(list=c("KD.list","KD.anchors"))
+```
+
+$~$
+
+#### Clustering analysis for the integrated KD scRNA-seq data
+```{r message=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+# specify that we will perform downstream analysis on the corrected data note that the original
+# unmodified data still resides in the 'RNA' assay
+DefaultAssay(KD.integrated) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+KD.integrated <- RunPCA(KD.integrated, npcs = 50, verbose = FALSE)
+KD.integrated <- RunUMAP(KD.integrated, reduction = "pca", dims = 1:50)
+
+set.seed(12345)
+KD.integrated <- FindNeighbors(KD.integrated, reduction = "pca", dims = 1:50)
+KD.integrated <- FindClusters(KD.integrated, resolution = 0.75)
+
+# Visualization
+p1 <- DimPlot(KD.integrated, reduction = "umap", group.by = "orig.ident")
+p2 <- DimPlot(KD.integrated, reduction = "umap", label = TRUE, repel = TRUE)
+p1+p2
+DimPlot(KD.integrated, reduction = "umap", split.by = "orig.ident")
+
+## CD69 expression levels
+DefaultAssay(KD.integrated) <- "RNA"
+FeaturePlot(KD.integrated, features = c("CD69"), split.by = "orig.ident", max.cutoff = 3, cols = c("grey", "red"))
+```
+
+$~$
+
+#### (optional) Trajectory analysis
+```{r message=FALSE, warning=FALSE, fig.width=6, fig.height=5}
+library(SeuratWrappers)
+library(monocle3)
+
+Idents(KD.integrated) <- "orig.ident"
+KD.integrated.sub <- subset(KD.integrated, idents = c("KD_4hr"))
+
+KD.cds <- as.cell_data_set(KD.integrated.sub)
+KD.cds <- cluster_cells(cds = KD.cds, reduction_method = "UMAP")
+KD.cds <- learn_graph(KD.cds, use_partition = FALSE, close_loop = FALSE)
+
+# cell with the highest ADAP1
+idx <- which.max(assay(KD.cds)[rownames(assay(KD.cds))=="CD69",])
+
+# order cells
+KD.cds <- order_cells(KD.cds, reduction_method = "UMAP", root_cells = names(idx)) #NULL
+
+# plot trajectories colored by pseudotime
+plot_cells(
+  cds = KD.cds,
+  color_cells_by = "pseudotime",
+  show_trajectory_graph = TRUE
+)
+```
+
+$~$
+
+#### Marker discovery for KD_4hr vs. KD_0hr cells
+```{r message=FALSE, warning=FALSE, fig.width=8, fig.height=12}
+#DefaultAssay(KD.integrated) <- "RNA"
+#KD.integrated <- NormalizeData(KD.integrated, verbose = FALSE)
+
+KD.integrated <- SetIdent(object = KD.integrated, value = "orig.ident")
+KD.integrated.markers <- FindMarkers(KD.integrated, ident.1 = "KD_4hr", assay="RNA", only.pos = FALSE, min.pct = 0.1, logfc.threshold = 0.25)#0.10)#25)
+#KD.integrated <- SetIdent(object = KD.integrated, value = "seurat_clusters")
+#KD.integrated.markers <- FindMarkers(KD.integrated, ident.1 = c(3), only.pos = FALSE, min.pct = 0.1, logfc.threshold = 0.5) 
+
+KD.UP.sig_markers <- KD.integrated.markers %>% filter(p_val_adj < 0.05) %>% top_n(n = 50, wt = avg_log2FC)
+KD.DN.sig_markers <- KD.integrated.markers %>% filter(p_val_adj < 0.05) %>% top_n(n = -50, wt = avg_log2FC)
+KD.sig_markers <- bind_rows(KD.UP.sig_markers, KD.DN.sig_markers)
+
+#DefaultAssay(KD.integrated) <- "integrated"
+#DoHeatmap(KD.integrated, features = rownames(KD.sig_markers), size=2) + NoLegend() + theme(text = element_text(size = 8))
+```
+$~$
+
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=50}
+#KD.UP.sig_markers
+KD.up_sig_genes <- rownames(KD.UP.sig_markers)
+
+KD.up_plots <- VlnPlot(KD.integrated, features = KD.up_sig_genes, assay="RNA", group.by = "orig.ident", pt.size = 0.5, combine = FALSE)
+wrap_plots(plots=KD.up_plots, ncol=3)
+```
+
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=50}
+#KD.DN.sig_markers
+KD.down_sig_genes <- rownames(KD.DN.sig_markers)
+
+KD.down_plots <- VlnPlot(KD.integrated, features = KD.down_sig_genes, assay="RNA", group.by = "orig.ident", pt.size = 0.5, combine = FALSE)
+wrap_plots(plots=KD.down_plots, ncol=3)
+```
+
+$~$
+
+
+## 3) Log2FC scatter plot: Ctrl vs. KD
+```{r message=FALSE, warning=FALSE, fig.width=8, fig.height=8}
+markers.merged <- merge(Ctrl.integrated.markers, KD.integrated.markers, by=0, all=TRUE)
+colnames(markers.merged) <- gsub(".x", ".CTRL", colnames(markers.merged))
+colnames(markers.merged) <- gsub(".y", ".KD", colnames(markers.merged))
+
+plot_ly(data=markers.merged, x = ~avg_log2FC.CTRL, y = ~avg_log2FC.KD, type="scatter", text = markers.merged$Row.names) %>% add_lines(x =  ~avg_log2FC.CTRL, y = ~avg_log2FC.CTRL) %>% layout(showlegend = FALSE)
+
+```
+
+$~$
+
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=10}
+#genes.of.interest
+genes.of.interest <- c("CD69", "MYC", "GZMB", "LTA", "CD40LG", "RGCC", "NR4A1", "TNF", "IL2", "CSF2")
+
+interest_plots_ctrl <- VlnPlot(Ctrl.integrated, features = genes.of.interest, assay="RNA", group.by = "orig.ident", pt.size = 0.0, combine = FALSE)
+wrap_plots(plots=interest_plots_ctrl, ncol=3)
+
+interest_plots_kd <- VlnPlot(KD.integrated, features = genes.of.interest, assay="RNA", group.by = "orig.ident", pt.size = 0.0, combine = FALSE)
+wrap_plots(plots=interest_plots_kd, ncol=3)
+```
+
+$~$
+
+```{r message=FALSE, warning=FALSE, fig.width=8, fig.height=3.5}
+Ctrl.integrated <- AddModuleScore(object = Ctrl.integrated, features = genes.of.interest, name = "cell_active_score")
+FeaturePlot(object = Ctrl.integrated, features = "cell_active_score1", split.by = "orig.ident", min.cutoff=0.1, max.cutoff = 3.5, cols = c("grey", "red"))
+
+KD.integrated <- AddModuleScore(object = KD.integrated, features = genes.of.interest, name = "cell_active_score")
+FeaturePlot(object = KD.integrated, features = "cell_active_score1", split.by = "orig.ident", min.cutoff=0.1, max.cutoff = 3.5, cols = c("grey", "red"))
+```
+
+$~$
+
+### ==End of Report==
